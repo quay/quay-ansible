@@ -33,6 +33,9 @@ Tested on RHEL 7 with Ansible 2.6
 
 Expects NetworkManager, Firewalld, and Selinux to be enabled.
 
+Expects Postgresql DB for Quay
+Expects Postgresql DB for Clair
+
 _ansible-vault password is password_
 _*.key and secrets/../config.yaml files are encrypted_
 
