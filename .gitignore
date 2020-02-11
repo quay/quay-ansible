@@ -1,0 +1,6 @@
+*.retry
+*.log
+*.orig
+*.bak
+.vscode
+

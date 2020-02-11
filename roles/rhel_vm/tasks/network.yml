@@ -1,0 +1,65 @@
+---
+- name: Gather Network Facts
+  setup:
+    gather_subset: network
+- name: Check variables
+  assert:
+    that: "{{ item }} is defined"
+    quiet: yes
+  with_items:
+  - dns_search
+  - dns_servers
+- name: Remove old dns=none config if exits
+  file:
+    path: /etc/NetworkManager/conf.d/99-ocp-networkmanager.conf
+    state: absent
+  register: networkmanager_dnsnone
+- name: Remove interface backup if exists
+  file:
+    path: "/etc/sysconfig/network-scripts/ifcfg-{{ ansible_default_ipv4.interface }}.bak"
+    state: absent
+  register: networkmanager_bak
+- name: Validate interface config
+  lineinfile:
+    regexp: "{{ item.match }}"
+    path: "/etc/sysconfig/network-scripts/ifcfg-{{ ansible_default_ipv4.interface }}"
+    line: "{{ item.line }}"
+    state: "{{ (item.line == '') | ternary('absent', 'present') }}"
+  with_items:
+  - { match: '^PEERDNS=', line: 'PEERDNS=no' }
+  - { match: '^IPV6INIT=', line: '' }
+  - { match: '^NM_CONTROLLED=', line: '' }
+  - { match: '^TYPE=', line: 'TYPE=Ethernet' }
+  - { match: '^USERCTL=', line: 'USERCTL=no' }
+  - { match: '^SEARCH=', line: "SEARCH=\"{{ dns_search }}\"" }
+  - { match: '^DNS1=', line: "DNS1={{ dns_servers[0]|default(omit) }}" }
+  - { match: '^DNS2=', line: "DNS2={{ dns_servers[1]|default(omit) }}" }
+  - { match: '^DNS3=', line: "DNS3={{ dns_servers[2]|default(omit) }}" }
+  - { match: '^DNS4=', line: "DNS4={{ dns_servers[3]|default(omit) }}" }
+  - { match: '^yes$', line: '' }
+  - { match: '^GATEWAY=', line: "GATEWAY={{ network_gateway | default(ansible_default_ipv4.gateway) }}" }
+  - { match: '^NETMASK=', line: "NETMASK={{ network_netmask | default(ansible_default_ipv4.netmask) }}" }
+  - { match: '^IPADDR=', line: "IPADDR={{ network_address | default(ansible_default_ipv4.address) }}" }
+  register: networksettings
+- name: Restart Network Manager
+  tags:
+  - restart_nm
+  when: networkmanager_dnsnone.changed or networkmanager_bak.changed
+  service:
+    name: NetworkManager
+    enabled: yes
+    state: restarted
+- name: Reload Network Connection
+  tags:
+  - reload_network
+  when: networksettings.changed
+  block:
+  - name: "Reload connection information from disk"
+    shell: "nmcli con reload"
+  - name: "Get primary connection name"
+    shell: "nmcli -t -f name con show --active"
+    changed_when: false
+    register: network_connection_name
+  - name: "Re-up network connection"
+    shell: "nmcli con up '{{ network_connection_name.stdout_lines|first }}'"
+
