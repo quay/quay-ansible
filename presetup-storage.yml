@@ -91,12 +91,10 @@
     block:
     - name: "Set selinux context for container data"
       sefcontext:
-        target: "{{ item }}(/.*)?"
+        target: "{{ data_dir }}(/.*)?"
         setype: svirt_sandbox_file_t
         state: present
-      with_items: "{{ data_dirs }}"
       register: sefcontext_status
     - name: "Apply selinux context for container data"
       when: sefcontext_status.changed
-      shell: "restorecon -irv {{ item }}"
-      with_items: "{{ data_dirs }}"
+      shell: "restorecon -irv {{ data_dir }}"

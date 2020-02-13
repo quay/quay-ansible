@@ -304,11 +304,11 @@
       src: "{{ quay_storage_dir }}/config/config.yaml"
     register: preexisting_config_contents
   - name: Quay Setup - Parse PreExisting Config File
-    when: preexisting_config_contents is defined
+    when: preexisting_config_file.stat.exists
     set_fact:
       quay_preexisting_config_all: "{{ preexisting_config_contents.content | b64decode | from_yaml }}"
   - name: Quay Setup - Get Required Values from PreExisting Config File
-    when: quay_preexisting_config_all is defined
+    when: preexisting_config_file.stat.exists
     set_fact:
       quay_preexisting_config:
         SECRET_KEY: "{{ quay_preexisting_config_all['SECRET_KEY'] }}"
@@ -317,11 +317,16 @@
 
 - run_once: yes
   delegate_to: "{{ quay_setup_client }}"
+  when: "inventory_hostname == ansible_play_hosts_all[0]"
   block:
+  - name: Quay setup - Get First server with preExisting Config
+    delegate_facts: yes
+    set_fact:
+      quay_preexisting_servers: "{{ (hostvars.values() | selectattr('quay_preexisting_config', 'defined') | list )}}"
   - name: Quay Setup - Collect PreExisting Config from First Server
     delegate_facts: yes
     set_fact:
-      quay_preexisting_config: "{{ (hostvars.values() | selectattr('quay_preexisting_config', 'defined') | list | first)['quay_preexisting_config'] }}"
+      quay_preexisting_config: "{{ (hostvars[quay_setup_client]['quay_preexisting_servers'] | first)['quay_preexisting_config'] if  (hostvars[quay_setup_client]['quay_preexisting_servers'] | length > 0)  else {} }}"
 
 - name: Quay Setup - Merge Quay Configs
   when: "inventory_hostname == ansible_play_hosts_all[0]"

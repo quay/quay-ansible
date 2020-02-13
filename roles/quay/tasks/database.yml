@@ -1,6 +1,6 @@
 - delegate_to: localhost
-  when: is_quay
   run_once: yes
+  when: "inventory_hostname == ansible_play_hosts_all[0]"
   tags:
   - quay
   - database
@@ -39,8 +39,10 @@
       name: pg_trgm
 
 - delegate_to: localhost
-  when: is_clair
   run_once: yes
+  when:
+  - "inventory_hostname == ansible_play_hosts_all[0]"
+  - "clair_servers | length > 0"
   tags:
   - clair
   - database
