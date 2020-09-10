@@ -54,7 +54,7 @@
         POSTGRESQL_ADMIN_PASSWORD: "{{ quay_db_admin_password }}"
       state: started
       volumes:
-      - "{{ /var/data/postgres }}/data:/var/lib/pgsql/data:Z"
+      - "{{ postgres_data_dir }}/data:/var/lib/pgsql/data:Z"
   - name: Wait for Postgres Container
     delegate_to: localhost
     wait_for:
