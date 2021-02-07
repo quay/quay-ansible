@@ -1,8 +1,11 @@
 # Quay HA Ansible Playbooks
 
-These playbooks can be used as a starting point to setup Quay 3 and Clair in an HA configuration following the docs at: https://access.redhat.com/documentation/en-us/red_hat_quay/3/html/manage_red_hat_quay/index
+These playbooks can be used as a starting point to setup Quay 3.3 and Clair in an HA configuration following the docs at: https://access.redhat.com/documentation/en-us/red_hat_quay/3.3/html/manage_red_hat_quay/index
 
 quay-setup.yaml is all that's needed, but also included is an example standalone redis and postgres container for testing, and some host preparation playbooks.
+
+🟥
+**Please note** that these playbooks were developed against private Quay 3.3 APIs. These APIs have changed in 3.4 and it is currently not possible to use these playbooks with Quay.3.4
 
 # Usage
 
