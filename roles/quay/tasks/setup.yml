@@ -18,7 +18,7 @@
     wait_for:
       host: "{{ quay_setup_server }}"
       port: 8443
-      delay: 5
+      delay: 10
       timeout: 60
   - name: Quay Setup API - Initialize Config
     delegate_to: "{{ quay_setup_client }}"
