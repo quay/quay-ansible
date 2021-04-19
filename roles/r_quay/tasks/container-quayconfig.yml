@@ -1,0 +1,84 @@
+- name: Quay Config Container Prerequisites
+  when:
+  - quay_runtime_user is defined
+  - quay_runtime_uid is not defined
+  - is_quay|bool
+  block:
+  # UID
+  #
+  #
+  - name: Get Quay UID
+    shell: "getent passwd {{ quay_runtime_user }} | cut -d ':' -f 3 || false"
+    register: quay_runtime_uid_out
+    changed_when: false
+    failed_when: "quay_runtime_uid_out.stdout | default('') == ''"
+
+  - name: Set Quay UID Fact
+    set_fact:
+      quay_runtime_uid: "{{ quay_runtime_uid_out.stdout }}"
+
+# Validations
+#
+#
+- name: Validate quay_setup_client is defined
+  assert:
+    that: quay_setup_client is defined
+    quiet: yes
+
+- name: Validate quay_setup_client is in list of servers
+  assert:
+    that: quay_setup_client in ansible_play_hosts_all
+    quiet: yes
+
+- name: Hostname Verification Message
+  when: inventory_hostname == quay_setup_client
+  debug:
+    msg: "First of Quay Hostnames successfully selected as Config Machine"
+
+
+# Get Quay Runtime ID
+#
+#
+- name: Run Quay Config Container
+  run_once: yes
+  when: "inventory_hostname == quay_setup_client"
+  become: yes
+  block:
+
+  # Clean stale config containers
+  #
+  #
+  - name: Remove Quay Config Container
+    when: remove_quayconfig_container|bool
+    import_tasks: class-remove-container.yml
+    vars:
+      service_name: quayconfig
+      runtime_user: "{{ quay_runtime_user }}"
+
+  - name: If Setup Credentials are not defined we will abort
+    assert:
+      that:
+        - "{{ quay_setup_password != None }}"
+        - "{{ quay_setup_name != None }}"
+
+  - name: login to {{ image_registry }}
+    become_user: "{{ quay_runtime_user }}"
+    command: "podman login -u={{ image_registry_user }} -p={{ quay_registry_password }} {{ image_registry }}"
+
+  - name: Quay Setup - Create Config Container
+    become_user: "{{ quay_runtime_user }}"
+    command: >
+      podman run -d --name {{ quay_setup_name }}
+      --privileged=true
+      -e RANDFILE=/tmp/.rnd
+      -v /tmp/quay-config:/conf/stack:z
+      -v {{ quay_data_dir }}/config/extra_ca_certs:/conf/stack/extra_ca_certs:z
+      -p 8443:8443 {{ quay_image }} config {{ quay_setup_password }}
+    register: podman_pid
+
+  - name: Quay Setup - Copy DB CA File
+    when: postgres_ssl_mode|bool
+    copy:
+      src: "{{ quay_db_ca_file }}"
+      dest: "/tmp/quay-config/database.pem"
+

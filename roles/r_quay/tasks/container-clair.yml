@@ -1,0 +1,106 @@
+- when:
+  - clair_runtime_user is defined
+  - clair_runtime_uid is not defined
+  - is_clair|bool
+  tags:
+  - container-clair
+  block:
+
+  - name: Get Clair UID
+    shell: "getent passwd {{ clair_runtime_user }} | cut -d ':' -f 3 || false"
+    changed_when: false
+    register: clair_runtime_uid_out
+    failed_when: "clair_runtime_uid_out.stdout | default('') == ''"
+
+  - name: Set Clair UID Fact
+    set_fact:
+      clair_runtime_uid: "{{ clair_runtime_uid_out.stdout }}"
+
+  - name: Create Clair Directories
+    tags:
+      - folders
+    file:
+      path: "{{ clair_data_dir }}/{{ item }}"
+      state: directory
+      owner: "{{ clair_runtime_user | default(omit) }}"
+      group: "{{ clair_runtime_user | default(omit) }}"
+      mode: 0755
+    with_items:
+       - ''
+       - config
+       - anchors
+
+- when:
+  - is_clair|bool
+  tags:
+  - container-clair
+  block:
+
+    - name: Remove Clair Container
+      when: remove_clair_container|bool
+      import_tasks: class-remove-container.yml
+      vars:
+        service_name: clair
+        runtime_user: "{{ clair_runtime_user }}"
+
+    - name: login to {{ image_registry }}
+      become_user: "{{ clair_runtime_user }}"
+      command: "podman login -u={{ image_registry_user }} -p={{ quay_registry_password }} {{ image_registry }}"
+
+    - name: Clair No Proxy
+      when: not clair_proxy_mode|bool
+      block:
+
+      - name: Create Clair Container without Proxy Support
+        become_user: "{{ clair_runtime_user }}"
+        command: >
+          podman run -d --name clair
+          -p 6060:6060 -p 6061:6061
+          -e NO_PROXY=.dev,localhost,127.0.0.1,{{ quay_hostname }}
+          -v {{ clair_data_dir }}/config:/clair/config:z
+          -v {{ clair_data_dir }}/anchors/ca.crt:/etc/pki/ca-trust/source/anchors/ca.crt:z
+          {{ clair_image }}
+        register: podman_pid
+
+      - name: Daemonize Clair
+        tags: install-service
+        block:
+          - import_tasks: class-container-service.yml
+            vars:
+              service_name: clair
+              runtime_user: "{{ clair_runtime_user }}"
+
+          - import_tasks: unit-test-service.yml
+            vars:
+              service_name: clair
+              runtime_user: "{{ clair_runtime_user }}"
+
+    - name: Clair Proxy
+      when: clair_proxy_mode|bool
+      block:
+
+      - name: Create Clair Container with Proxy Support
+        become_user: "{{ clair_runtime_user }}"
+        command: >
+          podman run -d --name clair
+          -p 6060:6060 -p 6061:6061
+          -e HTTP_PROXY=http://{{ clair_proxy_name }}:{{ clair_proxy_port }}
+          -e HTTPS_PROXY=http://{{ clair_proxy_name }}:{{ clair_proxy_port }}
+          -e NO_PROXY=.dev,localhost,127.0.0.1,{{ quay_hostname }}
+          -v {{ clair_data_dir }}/config:/clair/config:z
+          -v {{ clair_data_dir }}/anchors/ca.crt:/etc/pki/ca-trust/source/anchors/ca.crt:z
+          {{ clair_image }}
+        register: podman_pid
+
+      - name: Daemonize Clair
+        tags: install-service
+        block:
+          - import_tasks: class-container-service.yml
+            vars:
+              service_name: clair
+              runtime_user: "{{ clair_runtime_user }}"
+
+          - import_tasks: unit-test-service.yml
+            vars:
+              service_name: clair
+              runtime_user: "{{ clair_runtime_user }}"

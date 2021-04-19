@@ -1,0 +1,64 @@
+#
+# QM/QA for deployed Quay APIs and other Product Components
+# ( Run these System Tests for certainty after Deployment )
+#
+
+- when: inventory_hostname == groups['redis'][0]
+  become: yes
+  block:
+    - name: Before - Create CA
+      block:
+        - name: Create CA Folder
+          file:
+            path: "/etc/docker/certs.d/{{ groups['quay'][0] }}"
+            state: directory
+
+        - name: Copy CA to Localhost Folder
+          copy:
+            content: "{{ quay_ca_file }}"
+            dest: "/etc/docker/certs.d/{{ groups['quay'][0] }}/ca.crt"
+
+    - name: System Test (API) - Get Correct Version of Pushed Test Image
+      uri:
+        url: "https://{{ quay_hostname }}/api/v1/repository/{{ test_image_api }}/image"
+        method: GET
+        return_content: yes
+        validate_certs: no
+        headers:
+          Authorization: "Bearer {{ quay_system_test_bearer }}"
+      register: quay_smoke_test_response
+
+    - name: Assert that correct tag in response message from Quay API is found
+      loop: "{{ quay_smoke_test_response.json.images }}"
+      set_fact:
+        tags_found_list: "{{ tags_found_list | default([]) + item.tags }}"
+
+    - name: debug assert string
+      debug:
+        msg: "{{ tags_found_list }}"
+
+    - name: Assert that correct tag in response message from Quay API is found
+      vars:
+        assert_string: "{{ test_image_tag }}"
+      assert:
+        that: assert_string in tags_found_list
+
+
+    - name: System Test (API) - Get Clair Scanning Info
+      uri:
+        url: "https://{{ quay_hostname }}/api/v1/repository/{{ test_image_api }}/manifest/{{ quay_system_test_manifest }}/security"
+        method: GET
+        return_content: yes
+        validate_certs: no
+        headers:
+          Authorization: "Bearer {{ quay_system_test_bearer }}"
+      register: quay_smoke_test_response_clair
+
+    - name: Assert that Clair has queued the image in its Stack
+      vars:
+        assert_string_list:
+          - "queued"
+          - "fixable"
+          - "scanned"
+      assert:
+        that: quay_smoke_test_response_clair.json.status in assert_string_list

@@ -1,0 +1,15 @@
+- name: Remove All Folders Playbook
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Remove All Folders extends r_quay/class-remove-folder
+      block:
+        - include_role:
+            name: r_quay
+            tasks_from: class-remove-folder.yml
+          vars:
+            folder_list: [/var/data/, /tmp/quay-config]
+            runtime_user: "{{ quay_runtime_user }}"
+      when: remove_all_folders|bool
+

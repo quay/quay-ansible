@@ -1,0 +1,18 @@
+#
+# Container Management Tests
+#
+
+- name: Unit Tests Service
+  become_user: "{{ runtime_user }}"
+  block:
+
+  # Service and Container Up
+  #
+  #
+  - name: "Unit Test - Podman should have a {{ service_name }} container running"
+    command: "podman ps -a"
+    register: result
+
+  - name: "Unit Test - Podman should have a {{ service_name }} container running"
+    assert:
+      that: "'Up' in result.stdout_lines[1]"

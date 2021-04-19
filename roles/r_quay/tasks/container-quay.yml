@@ -1,0 +1,126 @@
+- when:
+  - quay_runtime_user is defined
+  - quay_runtime_uid is not defined
+  - is_quay|bool
+  tags:
+    - always
+  block:
+
+    # Get Quay UID
+    #
+    #
+    - name: Get Quay UID
+      shell: "getent passwd {{ quay_runtime_user }} | cut -d ':' -f 3 || false"
+      register: quay_runtime_uid_out
+      changed_when: false
+      failed_when: "quay_runtime_uid_out.stdout | default('') == ''"
+
+    - name: Set Quay UID Fact
+      set_fact:
+        quay_runtime_uid: "{{ quay_runtime_uid_out.stdout }}"
+
+- when: is_quay|bool
+  tags:
+    - containers
+  block:
+
+    # Clean stale config containers
+    #
+    #
+    - name: Remove Quay container
+      when: remove_quay_container|bool
+      block:
+        - import_tasks: class-remove-container.yml
+          vars:
+            service_name: quay
+            runtime_user: "{{ quay_runtime_user }}"
+
+
+    # Run Quay Container
+    #
+    #
+    - name: Login to {{ image_registry }}
+      become_user: "{{ quay_runtime_user }}"
+      command: "podman login -u={{ image_registry_user }} -p={{ quay_registry_password }} {{ image_registry }}"
+
+    - name: Create Quay Container
+      become_user: "{{ quay_runtime_user }}"
+      command: >
+        podman run -d --name quay
+        --sysctl=net.core.somaxconn=4096
+        -v {{ quay_data_dir }}/config:/conf/stack:z
+        -v {{ quay_data_dir }}/storage:/datastorage:z
+        -v {{ quay_data_dir }}/custom:/quay-registry/static/img/logos/custom:z
+        -v {{ quay_data_dir }}/anchors/ca.crt:/etc/pki/ca-trust/source/anchors/ca.crt:z
+        -v {{ quay_data_dir }}/config/extra_ca_certs:/conf/stack/extra_ca_certs:z
+        -p 443:8443 -p 80:8080 -p 9091:9091 {{ quay_image }}
+      register: podman_pid
+
+    - name: Wait for Quay Container to Start
+      pause:
+        seconds: 20
+
+    - name: Debug
+      debug:
+        msg: "{{ podman_pid }}"
+
+    # Daemonize Podman
+    #
+    #
+    - name: Daemonize and Test Quay
+      tags: install-service
+      block:
+        - import_tasks: class-container-service.yml
+          vars:
+            service_name: quay
+            runtime_user: "{{ quay_runtime_user }}"
+            podman_pid: podman_pid
+        - import_tasks: unit-test-service.yml
+          vars:
+            service_name: quay
+            runtime_user: "{{ quay_runtime_user }}"
+
+    # Clean stale config containers
+    #
+    #
+    - name: Remove Quay Repomirror Container
+      when: remove_quay_container|bool
+      block:
+        - import_tasks: class-remove-container.yml
+          vars:
+            service_name: repomirror
+            runtime_user: "{{ quay_runtime_user }}"
+
+
+    - name: Create Quay Repomirror Container
+      when: quay_repomirror_feature|bool
+      become_user: "{{ quay_runtime_user }}"
+      command: >
+        podman run -d --name repomirror
+        --sysctl=net.core.somaxconn=4096
+        --env=QUAY_DISTRIBUTED_STORAGE_PREFERENCE={{ prefered_storage }}
+        --env=RANDFILE=/certificates/.rnd
+        --tmpfs=/certificates:rw,size=78745k,mode=1777
+        -v {{ quay_data_dir }}/config:/conf/stack:z
+        -v {{ quay_data_dir }}/storage:/datastorage:z
+        -v {{ quay_data_dir }}/custom:/quay-registry/static/img/logos/custom:z
+        -v {{ quay_data_dir }}/anchors/ca.crt:/etc/pki/ca-trust/source/anchors/ca.crt:z
+        -v {{ quay_data_dir }}/config/extra_ca_certs:/conf/stack/extra_ca_certs:z
+        {{ quay_image }}
+      register: podman_pid
+
+    # Daemonize Podman
+    #
+    #
+    - name: Daemonize and Test Quay
+      when: quay_repomirror_feature|bool
+      tags: install-service
+      block:
+        - import_tasks: class-container-service.yml
+          vars:
+            service_name: repomirror
+            runtime_user: "{{ quay_runtime_user }}"
+        - import_tasks: unit-test-service.yml
+          vars:
+            service_name: repomirror
+            runtime_user: "{{ quay_runtime_user }}"

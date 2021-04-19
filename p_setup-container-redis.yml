@@ -1,0 +1,97 @@
+- name: Setup Redis Container
+  hosts: redis
+  user: "{{ redis_vm_user }}"
+  become: true
+  gather_facts: no
+  any_errors_fatal: yes
+  tags:
+  - redis
+  vars:
+    redis_data_dir: /var/data/redis
+  tasks:
+  - when: redis_runtime_user is defined
+
+    block:
+    - name: Get Redis User UID
+      shell: "getent passwd {{ redis_runtime_user }} | cut -d ':' -f 3 || false"
+      changed_when: false
+      register: redis_runtime_uid_out
+    - name: Setup user for Redis
+      when: "redis_runtime_uid_out.stdout | default('') == ''"
+      user:
+        name: "{{ redis_runtime_user }}"
+        system: yes
+        home: /dev/null
+        shell: /bin/false
+        create_home: no
+
+    - name: Get Redis User UID
+      shell: "getent passwd {{ redis_runtime_user }} | cut -d ':' -f 3 || false"
+      changed_when: false
+      register: redis_runtime_uid_out
+    - name: Set Redis User UID Fact
+      set_fact:
+        redis_runtime_uid: "{{ redis_runtime_uid_out.stdout }}"
+
+  - name: Create Redis Container Directories
+    tags:
+    - folders
+    file:
+      path: "{{ redis_data_dir }}/{{ item }}"
+      state: directory
+      owner: "{{ redis_runtime_user | default(omit) }}"
+      group: "{{ redis_runtime_user | default(omit) }}"
+      mode: 0755
+    with_items:
+    - ''
+    - data
+
+  - name: Remove Container
+    when: remove_redis_container|bool
+    block:
+      - include_role:
+          name: r_quay
+          tasks_from: class-remove-container.yml
+        vars:
+          service_name: redis
+          runtime_user: "{{ redis_runtime_user }}"
+
+  - name: Login to {{ image_registry }}
+    become_user: "{{ redis_runtime_user }}"
+    command: "podman login -u={{ image_registry_user }} -p={{ quay_registry_password }} {{ image_registry }}"
+
+  - name: Run Redis container
+    become_user: "{{ redis_runtime_user }}"
+    command: >
+      podman run --name redis
+      -v {{ redis_data_dir }}/data:/var/lib/redis/data:Z
+      -e REDIS_PASSWORD={{ secrets.quay_redis_password }}
+      -p 6379:6379 -d {{ redis_image }}
+    register: podman_pid
+
+  - name: Wait for Redis to come up
+    pause:
+      seconds: 7
+
+  # Daemonize Redis
+  #
+  #
+  - name: Daemonize Podman
+    tags: install-service
+    block:
+      - include_role:
+          name: r_quay
+          tasks_from: class-container-service.yml
+        vars:
+          service_name: redis
+          runtime_user: "{{ redis_runtime_user }}"
+
+  - name: Redis Unit Tests
+    tags: unit-tests
+    block:
+      - include_role:
+          name: r_quay
+          tasks_from: unit-test-service.yml
+        vars:
+          service_name: redis
+          runtime_user: "{{ redis_runtime_user }}"

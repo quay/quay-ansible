@@ -1,0 +1,499 @@
+- name: Quay Setup - Determine Hostname
+  set_fact:
+    quay_setup_client: "{{ groups['quayconfig'][0] }}"
+    #quay_setup_client: "{{ hostvars.values() | selectattr('is_quay', 'defined') | selectattr('is_quay') | map(attribute='inventory_hostname') | first }}"
+  failed_when: "quay_setup_client is not defined"
+
+# Start Config container
+#
+#
+- import_tasks: container-quayconfig.yml
+
+# Initialize Config Mode
+#
+#
+- run_once: yes
+  when: "inventory_hostname == groups['quayconfig'][0]"
+  block:
+    - name:  Quay Setup - Wait for Config Container
+      wait_for:
+        host: "{{ quay_setup_client }}"
+        port: 8443
+        delay: 10
+        timeout: 90
+
+    - name: Quay Setup API - Initialize Config
+      delegate_to: "{{ quay_setup_client }}"
+      uri:
+        method: POST
+        url: "https://{{ quay_setup_client }}:8443/api/v1/configapp/initialization"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+        return_content: yes
+        body_format: raw
+        validate_certs: no
+      register: quay_config_rest_response
+      until: quay_config_rest_response.status == 200
+      #failed_when: quay_config_rest_response.status != 200 or quay_config_rest_response.content | trim | lower != 'ok'
+      retries: 50
+      delay: 10
+
+# Connect to DB
+#
+#
+- run_once: yes
+  when: "inventory_hostname == groups['quayconfig'][0]"
+  delegate_to: "{{ quay_setup_client }}"
+  block:
+    - name: Quay Setup API - Get Config State
+      uri:
+        method: GET
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/registrystatus"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+        return_content: yes
+        body_format: json
+        validate_certs: no
+      register: quay_config_rest_response
+      failed_when: quay_config_rest_response.status != 200 or quay_config_rest_response.json.status != 'config-db'
+
+    - name: Quay Setup API - Validate Database Info
+      uri:
+        method: POST
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/config/validate/database"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+        return_content: yes
+        body_format: json
+        validate_certs: no
+        body:
+          config:
+            DB_URI: "postgresql://{{ quay_db_username | urlencode }}:{{ quay_db_password | urlencode }}@{{ quay_db_hostname }}:{{ quay_db_port }}/{{ quay_db_dbname }}"
+            DB_CONNECTION_ARGS: "{{ quay_db_connect_options }}"
+      register: quay_config_rest_response
+      failed_when: quay_config_rest_response.status != 200 or quay_config_rest_response.json.status != true
+
+    - name: Quay Setup API - Set Database Info
+      uri:
+        method: PUT
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/config"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+        return_content: yes
+        body_format: json
+        validate_certs: no
+        body:
+          config:
+            DB_URI: "postgresql://{{ quay_db_username | urlencode }}:{{ quay_db_password | urlencode }}@{{ quay_db_hostname }}:{{ quay_db_port }}/{{ quay_db_dbname }}"
+            DB_CONNECTION_ARGS: "{{ quay_db_connect_options }}"
+      register: quay_config_rest_response
+      failed_when: quay_config_rest_response.status != 200 or quay_config_rest_response.json.config is not defined
+
+# Configure Database
+#
+#
+- run_once: yes
+  when: "inventory_hostname == groups['quayconfig'][0]"
+  delegate_to: "{{ quay_setup_client }}"
+  block:
+    - name: Quay Setup API - Get Config State
+      changed_when: false
+      uri:
+        method: GET
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/registrystatus"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+        return_content: yes
+        body_format: json
+        validate_certs: no
+      register: quay_config_rest_response
+
+    - name: Quay Setup API - Initialize DB
+      when: "quay_config_rest_response.json.status == 'setup-db'"
+      changed_when: true
+      uri:
+        method: GET
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/setupdb"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+        return_content: yes
+        body_format: json
+        validate_certs: no
+      register: quay_config_rest_response
+      failed_when: quay_config_rest_response.status != 200 or quay_config_rest_response.json.logs is not defined
+
+# Configure Superuser
+- run_once: yes
+  when: "inventory_hostname == groups['quayconfig'][0]"
+  delegate_to: "{{ quay_setup_client }}"
+  block:
+    - name: Quay Setup API - Get Config State
+      uri:
+        method: GET
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/registrystatus"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+        return_content: yes
+        body_format: json
+        validate_certs: no
+      register: quay_config_rest_response
+
+    - name: Quay Setup API - Initialize Super User
+      when: "quay_config_rest_response.json.status == 'create-superuser' or quay_config_rest_response.json.status == 'config'"
+      changed_when: true
+      uri:
+        method: POST
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/config/createsuperuser"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+        return_content: yes
+        body_format: json
+        validate_certs: no
+        body:
+          username: "{{ quay_initial_superuser_username }}"
+          email: "{{ quay_initial_superuser_email }}"
+          password: "{{ quay_initial_superuser_password }}"
+          repeatPassword: "{{ quay_initial_superuser_password }}"
+      register: quay_config_rest_response
+      failed_when: quay_config_rest_response.status != 200 or quay_config_rest_response.json.status != true
+
+# Setup Clair Scanner Key
+#
+#
+- name: Quay Setup Clair - Check for existing security_scanner keyfiles
+  when: is_clair|bool
+  shell: "ls -1 {{ clair_data_dir }}/config/keys/|grep -E '\\.pem$'|sed -E 's~^.+/~~g'|cut -d '.' -f 1"
+  register: clair_scanner_keyfiles_out
+  changed_when: false
+
+- name: Quay Setup Clair - Set clair_scanner_keyfiles Fact
+  when: is_clair|bool
+  set_fact:
+    clair_scanner_keys: "{{ clair_scanner_keyfiles_out.stdout_lines }}"
+
+- run_once: yes
+  delegate_to: "{{ quay_setup_client }}"
+  block:
+
+    - name: Quay Setup Clair - Prepare for Global existing security_scanner keyfiles
+      delegate_facts: yes
+      when: clair_scanner_keys is defined
+      set_fact:
+        global_clair_scanner_keys: "{{ (hostvars.values() | selectattr('clair_scanner_keys', 'defined') | list | first).clair_scanner_keys }}"
+
+    - name: Quay Setup Clair - Check for Global existing security_scanner keyfiles
+      delegate_facts: yes
+      when:
+        - "hostvars[quay_setup_client] is defined"
+        - "hostvars[quay_setup_client]['global_clair_scanner_keys']"
+      set_fact:
+        global_clair_scanner_keys: "{{ hostvars[quay_setup_client]['global_clair_scanner_keys'] | intersect(item['clair_scanner_keys']) }}"
+      with_items: "{{ hostvars.values() | selectattr('clair_scanner_keys', 'defined') | list }}"
+      loop_control:
+        label: "{{ item['inventory_name'] }}"
+
+    - name: Quay Setup API - Get Config State
+      uri:
+        method: GET
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/registrystatus"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+
+#        force: yes
+        return_content: yes
+        body_format: json
+        validate_certs: no
+      register: quay_config_rest_response
+      failed_when: "quay_config_rest_response.status != 200 or quay_config_rest_response.json.status != 'config'"
+
+    - name: Quay Setup API - Get Clair Scanner Key Id
+      uri:
+        method: GET
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/keys"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+
+#        force: yes
+        return_content: yes
+        body_format: json
+        validate_certs: no
+      register: quay_config_rest_response
+
+
+    - name: Quay Setup API - Parse Clair Scanner Key Ids and Check for Matches with Existing
+      when:
+      - "quay_config_rest_response.json['keys'] | length > 0"
+      - "hostvars[quay_setup_client] is defined"
+      delegate_facts: yes
+      set_fact:
+        found_clair_scanner_key_ids: "{{ quay_config_rest_response.json['keys'] | map(attribute='kid') | list | intersect(hostvars[quay_setup_client]['global_clair_scanner_keys']) }}"
+
+    - name: Quay Setup API - Grab First Matching Clair Scanner Key Id
+      when:
+        - found_clair_scanner_key_ids is defined
+        - "{{ hostvars[quay_setup_client]['found_clair_scanner_key_ids'] | default([]) | length > 0 }}"
+      delegate_facts: yes
+      set_fact:
+        quay_api_scanner_key_id: "{{ hostvars[quay_setup_client]['found_clair_scanner_key_ids'] | first }}"
+
+    - name: Force new Clair Security Key
+      when: clair_force_new_key |bool
+      delegate_facts: yes
+      set_fact:
+        quay_api_scanner_key_id: ''
+
+- run_once: yes
+  when: "(hostvars[quay_setup_client]['quay_api_scanner_key_id'] | default('')) == ''"
+  delegate_to: "{{ quay_setup_client }}"
+  block:
+
+    - name: Quay Setup API - Create new Clair Scanner Key
+      uri:
+        method: POST
+        url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/keys"
+        url_username: "{{ quay_setup_name }}"
+        url_password: "{{ quay_setup_password }}"
+
+#        force: yes
+        return_content: yes
+        body_format: json
+        body:
+          name: "Service Key for Clair"
+          service: "security_scanner"
+          expiration: null
+          notes: "Created by Ansible Playbook"
+        validate_certs: no
+      register: quay_config_rest_response
+      changed_when: true
+      failed_when: "quay_config_rest_response.status != 200 or quay_config_rest_response.json.private_key | default('') == ''"
+
+    - name: Quay Setup - Parse Clair Scanner Key
+      delegate_facts: false
+      set_fact:
+        quay_api_scanner_key_id: "{{ quay_config_rest_response.json.kid }}"
+        quay_api_scanner_key_data: "{{ quay_config_rest_response.json.private_key }}"
+
+
+- name: Quay Setup - Set Clair Config Facts
+  run_once: yes
+  when: "inventory_hostname == groups['quayconfig'][0]"
+  delegate_to: "{{ item }}"
+  delegate_facts: yes
+  set_fact:
+    quay_api_scanner_key_id: "{{ quay_api_scanner_key_id }}"
+    quay_api_scanner_key_data: "{{ quay_api_scanner_key_data }}"
+  with_items: "{{ groups['quay'] }}"
+
+# Get quay_api_config
+#
+#
+- run_once: yes
+  when: "inventory_hostname == groups['quayconfig'][0]"
+  delegate_to: "{{ quay_setup_client }}"
+  block:
+  - name: Quay Setup API - Get Config
+    uri:
+      method: GET
+      url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/config"
+      url_username: "{{ quay_setup_name }}"
+      url_password: "{{ quay_setup_password }}"
+      force_basic_auth: yes
+      force: yes
+      return_content: yes
+      body_format: json
+      validate_certs: no
+    register: quay_config_rest_response
+
+  - name: Quay Setup API - Parse Config
+    delegate_facts: yes
+    set_fact:
+      quay_api_config: "{{ quay_config_rest_response.json.config }}"
+
+  - name: Get Quay Config from Role
+    include_vars:
+      file: files/quay/config.yaml
+      name: quay_role_config
+
+- when: is_quay|bool
+  block:
+
+  - name: If delete_old_config true delete any pre existing config file
+    when: delete_old_quay_config == true
+    file:
+      path: "{{ quay_data_dir }}/config/config.yaml"
+      state: absent
+
+  - name: Quay Setup - Check For PreExisting Config File
+    stat:
+      path: "{{ quay_data_dir }}/config/config.yaml"
+    register: preexisting_config_file
+
+  - name: Quay Setup - Get PreExisting Config File
+    when: preexisting_config_file.stat.exists
+    slurp:
+      src: "{{ quay_data_dir }}/config/config.yaml"
+    register: preexisting_config_contents
+
+  - name: Quay Setup - Parse PreExisting Config File
+    when: preexisting_config_file.stat.exists
+    set_fact:
+      quay_preexisting_config_all: "{{ preexisting_config_contents.content | b64decode | from_yaml }}"
+
+  - name: Debug Quay Config
+    when: preexisting_config_file.stat.exists
+    debug:
+      msg: "{{ quay_preexisting_config_all }}"
+
+  - name: Quay Setup - Get Required Values from PreExisting Config File
+    when: preexisting_config_file.stat.exists
+    set_fact:
+      quay_preexisting_config:
+        DATABASE_SECRET_KEY: "5430524792542578293029874276090781010256005654220648647201884076284299510722"
+
+
+- run_once: yes
+  delegate_to: "{{ quay_setup_client }}"
+  when: "inventory_hostname == groups['quayconfig'][0]"
+  block:
+
+  - name: Quay setup - Get First server with preExisting Config
+    delegate_facts: yes
+    set_fact:
+      quay_preexisting_servers: "{{ (hostvars.values() | selectattr('quay_preexisting_config', 'defined') | list )}}"
+
+  - name: Quay Setup - Collect PreExisting Config from First Server
+    delegate_facts: yes
+    when:
+     - quay_preexisting_servers is defined
+     - quay_preexisting_config is defined
+    set_fact:
+      quay_preexisting_config: "{{ (quay_preexisting_servers | first)['quay_preexisting_config'] if (quay_preexisting_servers | length > 0)  else {} }}"
+
+- name: Quay Setup - Merge Quay Configs WITH PRE CONFIG
+  when:
+    - "inventory_hostname == groups['quayconfig'][0]"
+    - quay_preexisting_config is defined
+  run_once: yes
+  set_fact:
+    quay_config_merged:  "{{ (quay_api_config|default({})) | combine((quay_preexisting_config|default({}))) | combine((quay_role_config|default({}))) | combine((quay_config|default({}))) }}"
+  delegate_to: "{{ item }}"
+  delegate_facts: yes
+  with_items: "{{ groups['quay'] }}"
+
+- name: Quay Setup - Merge Quay Configs NO PRE CONFIG
+  when:
+    - "inventory_hostname == groups['quayconfig'][0]"
+    - quay_preexisting_config is not defined
+    - quay_api_config is defined
+    - quay_role_config is defined
+    - quay_config is defined
+  run_once: yes
+  set_fact:
+    quay_config_merged: "{{ quay_api_config | combine(quay_role_config) | combine(quay_config) }}"
+  delegate_to: "{{ item }}"
+  delegate_facts: yes
+  with_items: "{{ groups['quay'] }}"
+
+
+- name: Quay Setup - Merge Quay Configs NO PRE CONFIG
+  when:
+    - "inventory_hostname == groups['quayconfig'][0]"
+    - quay_preexisting_config is not defined
+    - quay_api_config is defined
+    - quay_role_config is not defined
+    - quay_config is defined
+  run_once: yes
+  set_fact:
+    quay_config_merged: "{{ quay_api_config | combine(quay_config) }}"
+  delegate_to: "{{ item }}"
+  delegate_facts: yes
+  with_items: "{{ groups['quay'] }}"
+
+- name: Quay Setup - Merge Quay Configs NO PRE CONFIG
+  when:
+    - "inventory_hostname == groups['quayconfig'][0]"
+    - quay_preexisting_config is not defined
+    - quay_api_config is defined
+    - quay_role_config is not defined
+    - quay_config is not defined
+  run_once: yes
+  set_fact:
+    quay_config_merged: "{{ quay_api_config }}"
+  delegate_to: "{{ item }}"
+  delegate_facts: yes
+  with_items: "{{ groups['quay'] }}"
+
+- name: Quay Setup - Merge Quay Configs NO PRE CONFIG
+  when:
+    - "inventory_hostname == groups['quayconfig'][0]"
+    - quay_preexisting_config is not defined
+    - quay_api_config is not defined
+    - quay_role_config is not defined
+    - quay_config is defined
+  run_once: yes
+  set_fact:
+    quay_config_merged: "{{ quay_config }}"
+  delegate_to: "{{ item }}"
+  delegate_facts: yes
+  with_items: "{{ groups['quay'] }}"
+
+- name: Quay Setup - Merge Quay Configs NO PRE CONFIG
+  when:
+    - "inventory_hostname == groups['quayconfig'][0]"
+    - quay_preexisting_config is not defined
+    - quay_api_config is not defined
+    - quay_role_config is defined
+    - quay_config is defined
+  run_once: yes
+  set_fact:
+    quay_config_merged: "{{ quay_config | combine(quay_role_config) }}"
+  delegate_to: "{{ item }}"
+  delegate_facts: yes
+  with_items: "{{ groups['quayconfig'] }}"
+
+# Validate data
+#
+#
+- name: Debug msg all config layers of Quay
+  debug:
+    msg: "{{ item }}"
+  with_items:
+    - quay_preexisting_config
+    - quay_api_config
+    - quay_role_config
+    - quay_config
+    - quay_config_merged
+
+- run_once: yes
+  when: "inventory_hostname == groups['quayconfig'][0]"
+  delegate_to: "{{ quay_setup_client }}"
+  name: Quay Setup API - Validate Merged Config Settings
+  tags:
+  - validate
+  uri:
+    method: POST
+    url: "https://{{ quay_setup_client }}:8443/api/v1/superuser/config/validate/{{ item }}"
+    url_username: "{{ quay_setup_name }}"
+    url_password: "{{ quay_setup_password }}"
+    return_content: yes
+    body_format: json
+    validate_certs: no
+    body:
+      config: "{{ quay_config_merged }}"
+  with_items:
+  - database
+  - redis
+  - registry-storage
+  - time-machine
+  - access
+
+
+# Stop Config container
+#
+#
+- run_once: yes
+  when: "inventory_hostname == quay_setup_client"
+  import_tasks: class-remove-container.yml
+  vars:
+    service_name: quayconfig
+    runtime_user: "{{ quay_runtime_user }}"

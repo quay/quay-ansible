@@ -1,0 +1,69 @@
+# Container Removal
+# 
+# 
+remove_clair_container: "{{ remove_clair_container }}"
+remove_redis_container: "{{ remove_redis_container }}"
+remove_postgres_container: "{{ remove_postgres_container }}"
+remove_quay_container: "{{ remove_quay_container }}"
+remove_quayconfig_container: "{{ remove_quayconfig_container }}"
+
+# Quay Config
+#
+#
+is_quay: "{{ is_quay }}"
+quay_hostname: "{{ quay_hostname }}"
+quay_setup_client: "{{ groups['quayconfig'][0] }}"
+quay_data_dir: "{{ quay_data_dir }}"
+quay_repomirror_storage_dir: "{{ quay_repomirror_storage_dir }}"
+quay_runtime_user: "{{ quay_runtime_user }}"
+quay_setup_name: "{{ quay_setup_name }}"
+quay_repomirror_feature: "{{ quay_repomirror_feature }}"
+delete_old_quay_config: "{{ delete_old_quay_config }}" 
+quay_logo_file: "{{ quay_logo_file }}"
+quay_redis_port: "{{ quay_redis_port }}"
+quay_redis_password: "{{ secrets.quay_redis_password }}"
+quay_redis_hostname: "{{ groups['redis'][0] }}"
+quay_image: "{{ quay_image }}"
+quay_initial_superuser_username: "{{ quay_initial_superuser_username }}"
+quay_initial_superuser_email: "{{ quay_initial_superuser_email }}"
+quay_initial_superuser_password: "{{ secrets.quay_initial_superuser_password }}"
+quay_superusers: "{{ quay_initial_superuser_username }}"
+quay_setup_password: "{{ secrets.quay_setup_password }}"
+
+# Postgres Config
+#
+#
+postgres_ssl_mode: "{{ postgres_ssl_mode }}"
+postgres_server: "{{ groups['postgres'][0] }}"
+quay_db_server: "{{ groups['postgres'][0] }}"
+quay_db_hostname: "{{ groups['postgres'][0] }}"
+quay_db_port: "{{ quay_db_port }}"
+quay_db_username: "{{ quay_db_username }}"
+quay_db_password: "{{ secrets.quay_db_password }}"
+quay_db_dbname: "{{ quay_db_dbname }}"
+quay_db_admin_username: "{{ quay_db_admin_username }}"
+quay_db_admin_password: "{{ secrets.quay_db_admin_password }}"
+quay_registry_password: "{{ secrets.quay_registry_password }}"
+
+# Clair Config
+#
+#
+is_clair: "{{ is_clair }}"
+clair_data_dir: "{{ clair_data_dir }}"
+clair_runtime_user: "{{ clair_runtime_user }}"
+clair_force_new_key: "{{ clair_force_new_key }}"
+clair_cert_file: "{{ clair_cert_file }}"
+clair_key_file: "{{ clair_key_file }}"
+clair_ca_files: "{{ clair_ca_files }}"
+clair_db_ca_file: "{{ clair_db_ca_file }}"
+clair_hostname: "{{ clair_hostname }}"
+clair_db_admin_username: "{{ clair_db_admin_username }}"
+clair_db_admin_password: "{{ secrets.clair_db_admin_password }}"
+clair_image: "{{ clair_image }}"
+clair_db_hostname: "{{ quay_db_hostname }}"
+clair_db_port: "{{ clair_db_port }}"
+clair_db_username: "{{ clair_db_username }}"
+clair_db_password: "{{ secrets.clair_db_password }}"
+clair_db_dbname: "{{ clair_db_dbname }}"
+clair_pagination_key: "{{ lookup('password', '/tmp/clair_pagination_key length=32 chars=ascii_letters') }}"
+clair_proxy_mode: "{{ clair_proxy_mode }}"

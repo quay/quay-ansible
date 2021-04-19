@@ -1,0 +1,22 @@
+[Unit]
+Description=repomirror.service
+Documentation=man:podman-generate-systemd(1)
+Wants=network.target
+After=network-online.target
+
+[Service]
+User={{ quay_runtime_user }}
+Group={{ quay_runtime_user }}
+RestartSec=30s
+TimeoutStartSec=30s
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=always
+ExecStart=/usr/bin/podman start repomirror
+ExecStop=/usr/bin/podman stop repomirror
+PIDFile=
+KillMode=none
+Type=forking
+
+[Install]
+WantedBy=multi-user.target default.target
+

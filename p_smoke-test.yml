@@ -1,0 +1,17 @@
+- name: Integration Tests
+  hosts: all
+  become: true
+  gather_facts: no
+  any_errors_fatal: yes
+  tags:
+    - integration-tests
+  tasks:
+
+    - name: Login Quay
+      block:
+        - include_role:
+            name: r_quay
+            tasks_from: integration-tests-quay.yml
+        - include_role:
+            name: r_quay
+            tasks_from: system-tests.yml

@@ -1,0 +1,13 @@
+postgres_vm_user: yoda
+
+postgres_runtime_user: root
+postgres_runtime_group: root
+
+postgres_folder_owner: root
+postgres_folder_group: root
+
+postgres_data_dir: /var/data/postgres
+postgres_folder_permissions: u+rwx,g+rwx,o+rwx
+
+# postgres_runtime_uid:
+# postgres_runtime_gid:

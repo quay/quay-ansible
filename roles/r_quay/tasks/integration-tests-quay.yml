@@ -1,0 +1,201 @@
+#
+# Code Integration and QA
+# ( Run these Integration Tests for certainty before code merges )
+#
+
+- when: inventory_hostname == groups['redis'][0]
+  become: yes
+  block:
+
+    - name: Before - Create CA
+      block:
+        - name: Create CA Folder
+          file:
+            path: "/etc/docker/certs.d/{{ groups['quay'][0] }}"
+            state: directory
+
+        - name: Copy CA to Docker Cert Folder on Test Host
+          copy:
+            content: "{{ quay_ca_file }}"
+            dest: "/etc/docker/certs.d/{{ groups['quay'][0] }}/ca.crt"
+
+    - name: Describe Fetch Test Image
+      when: not test_skip_login_pull|bool
+      block:
+        - name: It should login to local Quay Registry
+          command: "podman login -u={{ image_registry_user }} -p={{ quay_registry_password }} {{ image_registry }}"
+          register: callback
+          environment:
+            GODEBUG: x509ignoreCN=0
+
+        - name: debug
+          debug:
+            msg: "{{ callback.stdout_lines[0] }}"
+
+        - name: Assert that it has logged in to local Quay Registry
+          vars:
+            test_string: "Login Succeeded!"
+          assert:
+            that: test_string == callback.stdout_lines[0]
+
+        - name: It should pull Test Image from Image Registry
+          command: >
+            podman pull {{ test_image }}
+          register: callback
+          environment:
+            GODEBUG: x509ignoreCN=0
+
+        - name: debug
+          debug:
+            msg: "{{ callback.stdout_lines[0] }}"
+
+        - name: Assert that it has pulled from local Quay Registry
+          assert:
+            that: callback.stdout_lines[0] is defined
+
+
+    - name: Describe Login to your Quay
+      block:
+        - name: It should login to local Quay Registry
+          command: "podman login -u={{ quay_test_robot_name }} -p={{ quay_test_robot_password }} {{ quay_hostname }}"
+          register: callback
+          environment:
+            GODEBUG: x509ignoreCN=0
+
+        - name: debug
+          debug:
+            msg: "{{ callback.stdout_lines[0] }}"
+
+        - name: Assert that it has logged in to local Quay Registry
+          vars:
+            test_string: "Login Succeeded!"
+          assert:
+            that: test_string == callback.stdout_lines[0]
+
+
+    - name: Describe Tag and Push
+      block:
+        - name: It should tag Test Container with local Quay Registry Repository
+          become_user: "{{ redis_runtime_user }}"
+          command: >
+            podman tag {{ test_image }} {{ test_image_local }}
+          register: callback
+          environment:
+            GODEBUG: x509ignoreCN=0
+
+        - name: debug
+          debug:
+            msg: "{{ callback.stderr_lines }}"
+
+        - name: Assert that it has tagged without error
+          assert:
+            that: callback.stderr_lines[0] is undefined
+
+        - name: It should push Test Container to local Quay Registry Repository
+          become_user: "{{ redis_runtime_user }}"
+          command: >
+            podman push {{ test_image_local }}
+          register: callback
+          environment:
+            GODEBUG: x509ignoreCN=0
+
+        - name: debug
+          debug:
+            msg: "{{ callback.stderr_lines }}"
+
+        - name: Assert that it has pulled from local Quay Registry
+          vars:
+            test_string: "Storing signatures"
+          assert:
+            that: test_string in callback.stderr_lines[-1]
+
+
+#    - name: Describe kill a Quay
+#      delegate_to: "{{ groups['quay'][0] }}"
+#      block:
+#          - name: Checking if Podman has quay container running
+#            command: "podman ps -a"
+#            register: result
+#
+#          - name: Running containers
+#            debug:
+#              msg: "{{ result.stdout_lines[1] }}"
+#
+#          - name: Trying to stop quay Container
+#            when: "'Up' in result.stdout_lines[1]"
+#            become: yes
+#            systemd:
+#              name: quay.service
+#              state: stopped
+#
+#          - name: Wait for Podman
+#            pause:
+#              seconds: 3
+#
+#          - name: Checking if Podman has quay container running
+#            command: "podman ps -a"
+#            register: result
+#
+#          - name: Verify container down
+#            assert:
+#              that: "'Exited' in result.stdout_lines[1]"
+
+
+#    - name: Describe Login to Failover Quay
+#      block:
+#        - name: It should login to local Quay Registry
+#          command: "podman login -u={{ quay_test_robot_name }} -p={{ quay_test_robot_password }} {{ image_registry_test }}"
+#          register: callback
+#          environment:
+#            GODEBUG: x509ignoreCN=0
+#
+#        - name: debug
+#          debug:
+#            msg: "{{ callback.stdout_lines[0] }}"
+#
+#        - name: Assert that it has logged in to local Quay Registry
+#          vars:
+#            test_string: "Login Succeeded!"
+#          assert:
+#            that: test_string == callback.stdout_lines[0]
+
+
+    - name: Describe Pull from Failover Quay
+      block:
+        - name: It should pull Test Container from local Quay Registry
+          become_user: "{{ redis_runtime_user }}"
+          command: >
+            podman pull {{ test_image_local }}
+          register: callback
+          environment:
+            GODEBUG: x509ignoreCN=0
+
+        - name: debug
+          debug:
+            msg: "{{ callback.stdout_lines[0] }}"
+
+        - name: Assert that it has pulled from local Quay Registry
+          assert:
+            that: callback.stdout_lines[0] is defined
+
+    - name: After
+      block:
+        - name: After - Delete CA Quay from Host
+          file:
+            path: "/etc/docker/certs.d/{{ groups['quay'][0] }}/ca.crt"
+            state: absent
+
+ #       - name: After - Starting the stopped Container
+ #         delegate_to: "{{ groups['quay'][0] }}"
+ #         become: yes
+ #         systemd:
+ #           name: quay.service
+ #           state: started
+#
+#        - name: After - Checking if Podman has quay container running
+#          command: "podman ps -a"
+#          register: result
+#
+#        - name: After - Verify container up
+#          assert: 
+#            that: "'Up' in result.stdout_lines[1]"

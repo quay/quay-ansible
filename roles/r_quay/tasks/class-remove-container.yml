@@ -1,0 +1,31 @@
+- block:
+    - name: Remove container
+      become: true
+      become_user: "{{ runtime_user }}"
+      block:
+
+        - name: Checking if Podman has {{ service_name }} container running
+          command: "podman ps -a"
+          register: result
+
+        - name: "Running containers"
+          debug:
+            msg: result.stdout_lines[1]
+
+        - name: Trying to remove {{ service_name }} Container
+          command: "podman rm -f {{ service_name }}"
+          ignore_errors: true
+
+        - name: Stop Service
+          when: "service_name != 'quayconfig'"
+          become: yes
+          become_user: root
+          systemd:
+            name: "{{ service_name }}"
+            state: stopped
+            enabled: no
+          ignore_errors: true
+
+        - name: Wait for Podman to have stopped {{ service_name }} service completely
+          pause:
+            seconds: 20

@@ -1,0 +1,17 @@
+- name: Setup Postgres VM and Container
+  hosts: postgres
+  become: true
+  gather_facts: no
+  any_errors_fatal: yes
+  tags:
+    - postgres
+  tasks:
+    - name: Postgres Clean Superuser
+      when: drop_quay_db |bool
+      block:
+        - include_role:
+            name: r_quay
+            tasks_from: class-drop-quay-db.yml
+          vars:
+            runtime_user: "{{ postgres_runtime_user }}"
+

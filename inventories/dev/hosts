@@ -1,0 +1,25 @@
+[dns]
+dns.dev
+
+[postgres]
+postgres.dev
+
+[redis]
+redis.dev
+
+[quayconfig]
+quay.dev is_quay=true
+
+[quay]
+quay.dev is_quay=true
+quay-ha.dev is_quay=true
+clair.dev is_clair=true
+
+[all]
+quay.dev is_quay=true
+quay-ha.dev is_quay=true
+clair.dev is_clair=true
+postgres.dev
+redis.dev
+
+

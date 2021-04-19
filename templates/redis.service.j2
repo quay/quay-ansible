@@ -1,0 +1,22 @@
+[Unit]
+Description=redis.service
+Documentation=man:podman-generate-systemd(1)
+Wants=network.target
+After=network-online.target
+
+[Service]
+User={{ redis_runtime_user }}
+Group={{ redis_runtime_user }}
+RestartSec=30s
+TimeoutStartSec=30s
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=always
+ExecStart=/usr/bin/podman start redis
+ExecStop=/usr/bin/podman stop redis
+PIDFile=
+KillMode=none
+Type=forking
+
+[Install]
+WantedBy=multi-user.target default.target
+

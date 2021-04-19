@@ -1,0 +1,96 @@
+# base config will be loaded from server,
+# next  {{ inventory_dir }}/../../roles/quay/files/quay/config.yaml will be overlayed on top
+# finally, the following "quay_config" object will be layered on top.
+# https://access.redhat.com/documentation/en-us/red_hat_quay/3/html/manage_red_hat_quay/quay-schema
+quay_config:
+  # Merged on top of default API config + Role config file
+  # See: # https://access.redhat.com/documentation/en-us/red_hat_quay/3/html/manage_red_hat_quay/quay-schema
+  SUPER_USERS: [ yoda ]
+  DB_URI: "postgresql://{{ quay_db_username | urlencode }}:{{ quay_db_password | urlencode }}@{{ quay_db_hostname }}:{{ quay_db_port }}/{{ quay_db_dbname }}"
+
+  # GCE
+  #
+  DISTRIBUTED_STORAGE_CONFIG:
+    default:
+      - GoogleCloudStorage
+      - {
+          storage_path: /datastorage/registry,
+          access_key: access_key,
+          secret_key: "secret_key",
+          bucket_name: quay
+        }
+  DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS: [europe-west6]
+  DISTRIBUTED_STORAGE_PREFERENCE: [default]
+  DEFAULT_TAG_EXPIRATION: 4w
+
+  # AZURE
+  #
+  #  DISTRIBUTED_STORAGE_CONFIG:
+  #    default:
+  #      - AzureStorage
+  #      - { azure_account_key: "{{ secrets.azure_account_key }}",
+  #          sas_token: "{{ secrets.azure_sas_token }}",
+  #          azure_account_name: quaystorageaccount,
+  #          azure_container: quayblobstorage,
+  #          storage_path: /datastorage/registry }
+  #  DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS: [westeurope]
+  #  DISTRIBUTED_STORAGE_PREFERENCE: [default]
+  #  DEFAULT_TAG_EXPIRATION: 4w
+
+  # AWS
+  #
+  #    DISTRIBUTED_STORAGE_CONFIG:
+  #      default:
+  #        - S3Storage
+  #        - { host: s3-eu-central-1.amazonaws.com,
+  #            s3_access_key: <redacted>,
+  #            s3_bucket: quay-frankfurt-sutnuf,
+  #            s3_secret_key: <redacted>,
+  #            storage_path: /datastorage }
+  #    DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS: [westeurope]
+  #    DISTRIBUTED_STORAGE_PREFERENCE: [default]
+  #    DEFAULT_TAG_EXPIRATION: 4w
+
+  AUTHENTICATION_TYPE: Database # or LDAP
+  LDAP_ADMIN_DN: uid=admin,cn=users,cn=accounts,dc=shared,dc=example,dc=opentlc,dc=com
+  LDAP_ADMIN_PASSWD: "{{ secrets.ldap_password }}"
+  LDAP_BASE_DN:
+    - cn=accounts
+    - dc=shared
+    - dc=example
+    - dc=opentlc
+    - dc=com
+  LDAP_EMAIL_ATTR: mail
+  LDAP_UID_ATTR: uid
+  LDAP_URI: ldap://ipa.shared.example.opentlc.com
+  LDAP_USER_RDN:
+    - cn=users
+  LDAP_SECONDARY_USER_RDNS:
+    - cn=users2
+  FEATURE_TEAM_SYNCING: true
+  TEAM_RESYNC_STALE_TIME: 1m
+
+# FEATURE_MAILING: false
+# FEATURE_REPO_MIRROR: false
+# FEATURE_USERNAME_CONFIRMATION: false
+# MAIL_DEFAULT_SENDER: is-monitoring@example.com
+# MAIL_PORT: 25
+# MAIL_SERVER: apprelay.dev.name
+# MAIL_USE_TLS: false
+# FEATURE_BUILD_SUPPORT: false
+# LOG_ARCHIVE_LOCATION: quayuscentral
+# LOG_ARCHIVE_PATH: archives/buildlogs
+# FEATURE_USER_LOG_ACCESS: true
+# FEATURE_ACTION_LOG_ROTATION: true
+# ACTION_LOG_ARCHIVE_LOCATION: quayuscentral
+# ACTION_LOG_ARCHIVE_PATH: archives/actionlogs
+# ACTION_LOG_ROTATION_THRESHOLD: 1h
+# FEATURE_READER_BUILD_LOGS: true
+# USERFILES_LOCATION: quayuscentral
+# USERFILES_PATH: archives/userfiles
+# BROWSER_API_CALLS_XHR_ONLY: false
+
+
+
+
+
