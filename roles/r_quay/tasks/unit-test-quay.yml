@@ -1,0 +1,129 @@
+#
+# Run these Unit Tests for max security and HA
+#
+
+- when: is_quay|bool
+  block:
+
+#               QUAY HOST
+#
+#              /var/data
+#              |-- quay
+#              |   |-- anchors
+#              |   |   `-- rootCA.pem
+#              |   |-- config
+#              |   |   |-- database.pem
+#              |   |   |-- ssl.cert
+#              |   |   `-- ssl.key
+#              |   |-- custom
+#              |   |   `-- custom-logo.svg
+#              |   `-- storage
+#              `-- repomirror
+#                  |-- anchors
+#                  |-- config
+#                  |-- custom
+#                  `-- storage
+
+    # Quay TLS Cert
+    #
+    #
+    - name: Unit Test - Quay TLS Cert should exist
+      stat:
+        path: "{{ quay_data_dir }}/config/ssl.cert"
+      register: stat_result
+
+    - name: Unit Test - Quay TLS Cert should exist
+      assert:
+        that: stat_result.stat.exists
+
+    # Quay TLS Key
+    #
+    #
+    - name: Unit Test - Quay TLS Key should exist
+      stat:
+        path: "{{ quay_data_dir }}/config/ssl.key"
+      register: stat_result
+
+    - name: Unit Test - Quay TLS Key should exist
+      assert:
+        that: stat_result.stat.exists
+
+
+    # Quay CA
+    #
+    #
+    - name: Unit Test - CA File for Quay should exist
+      stat:
+        path: "{{ quay_data_dir }}/anchors/ca.crt"
+      register: stat_result
+
+    - name: Unit Test - CA File for Quay should exist
+      assert:
+        that: stat_result.stat.exists
+
+    # Quay DB CA
+    #
+    #
+    - name: DB CA File for Quay should exist
+      when: postgres_ssl_mode|bool
+      stat:
+        path: "{{ quay_data_dir }}/config/database.pem"
+      register: stat_result
+
+    - name: DB CA File for Quay should exist
+      when: postgres_ssl_mode|bool
+      assert:
+        that: stat_result.stat.exists
+
+    # Quay Extra Certs
+    #
+    #
+    - name: Unit Test - S3 Cert File for Quay should exist
+      when: quay_s3_cert_name is defined
+      stat:
+        path: "{{ quay_data_dir }}/config/extra_ca_certs/{{ quay_s3_cert_name }}"
+      register: stat_result
+
+    - name: Unit Test - S3 Cert File for Quay should exist
+      when: quay_s3_cert_name is defined
+      assert:
+        that: stat_result.stat.exists
+
+    - name: Unit Test - Quay LDAP Cert File for Quay should exist
+      when: quay_ldap_cert_name is defined
+      stat:
+        path: "{{ quay_data_dir }}/config/extra_ca_certs/{{ quay_ldap_cert_name }}"
+      register: stat_result
+
+    - name: Unit Test - Quay LDAP Cert File for Quay should exist
+      when: quay_ldap_cert_name is defined
+      assert:
+        that: stat_result.stat.exists
+
+    # Quay DB CA
+    #
+    #
+    - name: DB CA File for Quay should exist
+      when: postgres_ssl_mode|bool
+      stat:
+        path: "{{ quay_data_dir }}/config/database.pem"
+      register: stat_result
+
+    - name: DB CA File for Quay should exist
+      when: postgres_ssl_mode|bool
+      assert:
+        that: stat_result.stat.exists
+
+    # Postgres
+    #
+    #
+    - name: DB CA File for Quay should exist
+      when: postgres_ssl_mode|bool
+      stat:
+        path: "{{ quay_data_dir }}/config/database.pem"
+      register: stat_result
+
+    - name: DB CA File for Quay should exist
+      when: postgres_ssl_mode|bool
+      assert:
+        that: stat_result.stat.exists

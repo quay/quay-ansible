@@ -1,0 +1,22 @@
+[Unit]
+Description=postgres.service
+Documentation=man:podman-generate-systemd(1)
+Wants=network.target
+After=network-online.target
+
+[Service]
+User={{ postgres_runtime_user }}
+Group={{ postgres_runtime_group }}
+RestartSec=30s
+TimeoutStartSec=30s
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=always
+ExecStart=/usr/bin/podman start postgres
+ExecStop=/usr/bin/podman stop postgres
+PIDFile=
+KillMode=none
+Type=forking
+
+[Install]
+WantedBy=multi-user.target default.target
+

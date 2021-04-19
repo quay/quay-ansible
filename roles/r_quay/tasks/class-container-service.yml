@@ -1,0 +1,41 @@
+- block:
+  # Daemonize Podman
+  #
+  #
+  - name: Trying to remove existing {{ service_name }}.service
+    become: yes
+    file:
+      name: "/etc/systemd/system/{{ service_name }}.service"
+      state: absent
+
+  - name: Make Container Persistent
+    become: yes
+    template:
+      src: "templates/{{ service_name }}.service.j2"
+      dest: "/etc/systemd/system/{{ service_name }}.service"
+
+  - name: Get PID for daemon file
+    debug:
+      msg: "{{ podman_pid.stdout }}"
+
+  - name: RegEx Daemon File
+    lineinfile:
+      path: "/etc/systemd/system/{{ service_name }}.service"
+      line: PIDFile=/var/run/containers/storage/overlay-containers/{{ podman_pid.stdout }}/userdata/conmon.pid
+      regexp: '^PIDFile='
+
+  - name: Force systemd to reread configs
+    become: yes
+    systemd:
+      daemon_reload: yes
+
+  - name: Wait for Container
+    pause:
+      seconds: 5
+
+  - name: Enable Config and Start
+    become: yes
+    systemd:
+      name: "{{ service_name }}"
+      state: started
+      enabled: yes

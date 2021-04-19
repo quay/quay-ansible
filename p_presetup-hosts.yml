@@ -1,0 +1,41 @@
+- name: Setup Host Basics
+  hosts:
+    - redis
+    - postgres
+    - quay
+  gather_facts: no
+  tags:
+    - hosts.yaml
+    - linux
+  vars:
+    yum_packages:
+      - podman
+      - skopeo
+      - firewalld
+      - NetworkManager
+      - dnf
+      - python2-devel
+      - postgresql-libs
+      - libpq-devel
+      - "@Development tools"
+      - python3-psycopg2
+  roles:
+    - role: r_rhel_vm
+
+- name: Setup Container Runtime Hosts
+  hosts:
+    - redis
+    - postgres
+    - quay
+  gather_facts: no
+  tags:
+    - hosts.yaml
+    - runtime
+  tasks:
+    - name: Enable Networking between Docker Containers
+      firewalld:
+        permanent: yes
+        immediate: yes
+        interface: docker0
+        state: enabled
+        zone: trusted
