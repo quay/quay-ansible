@@ -1,0 +1,85 @@
+#
+# Database Tests
+#
+
+- name: Unit Tests Postgres
+  block:
+
+    # Postgres Specific Tests
+    #
+    #
+    - name: Unit Test - Wait for PostGres
+      pause:
+        seconds: 5
+
+    - name: Unit Test - Postgres Select Query should have pg_trgm module
+      command: "podman exec -it postgres /bin/bash -c 'echo \"SELECT * FROM pg_available_extensions\" | /usr/bin/psql'"
+      register: result
+
+    - name: Unit Test - Postgres Select Query should have pg_trgm module
+      set_fact:
+        pattern: "{{ result.stdout | regex_search('pg_trgm') }}"
+
+    - name: Unit Test - Postgres Select Query should have pg_trgm module
+      assert:
+        that: pattern == 'pg_trgm'
+
+
+    - name: Unit Test - Quay Postgres User should exist
+      command: "podman exec postgres /bin/bash -c 'echo \"SELECT ROLNAME FROM pg_roles\" | /usr/bin/psql'"
+      register: result
+
+    - name: Unit Test - Quay Postgres User should exist
+      set_fact:
+        pattern: "{{ result.stdout | regex_search(quay_db_username) }}"
+
+    - name: Unit Test - Quay Postgres User should exist
+      assert:
+        that: "pattern == '{{ quay_db_username.split('@') | first }}'"
+
+    - name: Unit Test - Quay user should have privileges to Quay DB
+      command: "podman exec postgres /bin/bash -c {{ __cmd | quote }}"
+      vars:
+        __sql: "\\l"
+        __cmd: "echo {{ __sql | quote }} | /usr/bin/psql"
+      register: result
+
+    - name: Unit Test - Quay user should have privileges to Quay DB
+      set_fact:
+        pattern: "{{ result.stdout | regex_search(quay_db_username) }}"
+
+    - name: Unit Test - Quay user should have privileges to Quay DB
+      assert:
+        that: "pattern == '{{ quay_db_username.split('@') | first }}'"
+
+    - name: Unit Test - Clair Postgres User should exist
+      command: "podman exec postgres /bin/bash -c 'echo \"SELECT ROLNAME FROM pg_roles\" | /usr/bin/psql'"
+      register: result
+
+    - name: Unit Test - Clair Postgres User should exist
+      set_fact:
+        pattern: "{{ result.stdout | regex_search(clair_db_username) }}"
+
+    - name: Unit Test - Clair Postgres User should exist
+      assert:
+        that: "pattern == '{{ clair_db_username.split('@') | first }}'"
+
+    - name: Unit Test - Clair user should have privileges to Quay DB
+      command: "podman exec postgres /bin/bash -c {{ __cmd | quote }}"
+      vars:
+        __sql: "\\l"
+        __cmd: "echo {{ __sql | quote }} | /usr/bin/psql"
+      register: result
+
+    - name: Unit Test - Clair user should have privileges to Quay DB
+      set_fact:
+        pattern: "{{ result.stdout | regex_search(clair_db_username) }}"
+
+    - name: Unit Test - Clair user should have privileges to Quay DB
+      assert:
+        that: "pattern == '{{ clair_db_username.split('@') | first }}'"
+
+    - name: Unit Test - Localhost should be able to connect to postgres
+      become: false
+      delegate_to: localhost
+      command: "export PGPASSWORD={{ quay_db_password }}"

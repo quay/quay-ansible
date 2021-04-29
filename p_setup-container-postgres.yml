@@ -1,0 +1,118 @@
+- name: Setup Postgres VM and Container and Run and Test Containerized PSQL
+  hosts: postgres
+  user: "{{ postgres_vm_user }}"
+  become: true
+  gather_facts: no
+  any_errors_fatal: yes
+  tags:
+  - postgres
+  tasks:
+
+    - name: Postgres variables should be defined
+      assert:
+        that:
+          - postgres_data_dir != None
+          - quay_db_admin_username != None
+          - quay_db_admin_password != None
+          - quay_db_password != None
+          - quay_db_password != None
+
+    - name: Remove Container
+      when: remove_postgres_container|bool
+      block:
+        - include_role:
+            name: r_quay
+            tasks_from: class-remove-container.yml
+          vars:
+            service_name: postgres
+            runtime_user: "{{ postgres_runtime_user }}"
+
+    - name: login to {{ image_registry }}
+      become_user: "{{ postgres_runtime_user }}"
+      command: "podman login -u={{ image_registry_user }} -p={{ quay_registry_password }} {{ image_registry }}"
+
+    - name: Run Postgres container
+      block:
+        - name: SSL Certs and hba conf files for Postgresql
+          when: postgres_ssl_mode|bool
+          block:
+
+            - name: Copy pg_hba config template pg_hba conf
+              template:
+                content: "templates/pg_hba.conf.j2"
+                dest: "{{ postgres_data_dir }}/data/userdata/pg_hba.conf"
+                owner: "{{ postgres_runtime_user | default(omit) }}"
+                group: "{{ postgres_runtime_group | default(omit) }}"
+                mode: "{{ postgres_folder_permissions }}"
+
+            - name: Copy postgres config template postgres conf
+              template:
+                content: "templates/postgres.conf.j2"
+                dest: "{{ postgres_data_dir }}/data/userdata/postgres.conf"
+                owner: "{{ postgres_runtime_user | default(omit) }}"
+                group: "{{ postgres_runtime_group | default(omit) }}"
+                mode: "{{ postgres_folder_permissions }}"
+
+            - name: Copy CRT
+              copy:
+                content: "{{ postgres_ssl_crt }}"
+                dest: "{{ postgres_data_dir }}/data/server.crt"
+                owner: "{{ postgres_runtime_user | default(omit) }}"
+                group: "{{ postgres_runtime_group | default(omit) }}"
+                mode: "{{ postgres_folder_permissions }}"
+
+            - name: Copy KEY
+              copy:
+                content: "{{ postgres_ssl_key }}"
+                dest: "{{ postgres_data_dir }}/data/server.key"
+                owner: "{{ postgres_runtime_user | default(omit) }}"
+                group: "{{ postgres_runtime_group | default(omit) }}"
+                mode: "{{ postgres_folder_permissions }}"
+
+            - name: Copy Root CA Cert
+              copy:
+                content: "{{ postgres_ssl_ca }}"
+                dest: "{{ postgres_data_dir }}/data/ca.crt"
+                owner: "{{ postgres_runtime_user | default(omit) }}"
+                group: "{{ postgres_runtime_group | default(omit) }}"
+                mode: "{{ postgres_folder_permissions }}"
+
+
+
+        - name: Download and Run Postgres Container
+          become_user: "{{ postgres_runtime_user }}"
+          command: >
+            podman run --name postgres
+             -e POSTGRESQL_ADMIN_USER={{ quay_db_admin_username }}
+             -e POSTGRESQL_ADMIN_PASSWORD={{ quay_db_admin_password }}
+             -v {{ postgres_data_dir }}/data:/var/lib/pgsql/data:Z
+             -p 5432:5432 -d {{ postgres_image }}
+          register: podman_pid
+
+#          -e POSTGRES_HOST_AUTH_METHOD=trust
+
+
+        - name: Wait for PostGres
+          pause:
+            seconds: 10
+
+        - name: Daemonize Podman
+          tags: install-service
+          block:
+            - include_role:
+                name: r_quay
+                tasks_from: class-container-service.yml
+              vars:
+                service_name: postgres
+                runtime_user: "{{ postgres_runtime_user }}"
+
+        - name: Postgres Unit Tests
+          tags: unit-tests
+          block:
+            - include_role:
+                name: r_quay
+                tasks_from: unit-test-service.yml
+              vars:
+                service_name: postgres
+                runtime_user: "{{ postgres_runtime_user }}"
+

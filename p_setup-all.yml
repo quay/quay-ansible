@@ -1,0 +1,8 @@
+---
+- import_playbook: p_remove-all-folders.yml
+- import_playbook: p_drop-quay-db.yml
+- import_playbook: p_presetup-hosts.yml
+- import_playbook: p_presetup-storage.yml
+- import_playbook: p_setup-container-postgres.yml
+- import_playbook: p_setup-container-redis.yml
+- import_playbook: p_setup-quay-ha.yml

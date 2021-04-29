@@ -1,0 +1,20 @@
+# class_drop_quay_db
+#
+#
+- name: Unit Tests Postgres
+  become_user: "{{ runtime_user }}"
+  block:
+    # Delete Quay DB (WARNING!)
+    #
+    #
+    - name: "Delete Quay DB from Postgres"
+      command: "podman exec postgres /bin/bash -c {{ __cmd | quote }}"
+      vars:
+        __sql: "DROP DATABASE IF EXISTS {{ quay_db_dbname }}"
+        __cmd: "echo {{ __sql | quote }} | /usr/bin/psql"
+      register: result
+      ignore_errors: true
+
+    - name: Result
+      debug:
+        msg: "{{ result }}"

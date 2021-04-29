@@ -1,0 +1,10 @@
+- block:
+    - name: Class Remove Folders
+      become_user: "{{ runtime_user }}"
+      block:
+        - name: Remove container Data Folders
+          file:
+            path: "{{ item }}"
+            state: absent
+          with_items:
+            "{{ folder_list }}"

@@ -1,0 +1,124 @@
+#- name: Setup of Folders and SELinux for Redis Quay Clair PSql
+#  block:
+
+    # Postgresql
+    #
+    #
+    - name: Setup Container Runtime Storage
+      hosts:
+        - postgres
+      gather_facts: no
+      tasks:
+
+        # name: Create Postgres User
+        # block:
+        #   - name: Create pre-defined postgres group
+        #     group:
+        #       name: "{{ postgres_runtime_group }}"
+        #       gid: "{{ postgres_runtime_gid }}"
+        #   - name: Create pre-defined postgres user
+        #     user:
+        #       name: "{{ postgres_runtime_user }}"
+        #       group: "{{ postgres_runtime_group }}"
+        #       uid: "{{ postgres_runtime_uid }}"
+        #       shell: /bin/bash
+        #       home: "{{ postgres_runtime_home }}"
+        #       comment: "PostgreSQL Container"
+
+        - name: Create new mountpoints
+          file:
+            path: "{{ data_dir_base }}"
+            state: directory
+            mode: 0777
+
+        - name: Create Postgres Container Directories for Postgresql
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: "{{ postgres_folder_owner }}"
+            group: "{{ postgres_folder_group }}"
+            mode: "{{ postgres_folder_permissions }}"
+          with_items:
+            - "{{ data_dir_base }}"
+            - "{{ postgres_data_dir }}/data"
+#            - "{{ postgres_data_dir }}/data/userdata"
+
+        - name: Set selinux context for container data
+          sefcontext:
+            target: "{{ item }}"
+            setype: svirt_sandbox_file_t
+            state: present
+          register: sefcontext_status
+          with_items:
+            - "{{ data_dir_base }}/.*"
+
+        - name: Apply selinux context for container data
+          when: sefcontext_status.changed
+          shell: "restorecon -irv {{ item }}"
+          with_items:
+            - "{{ data_dir_base }}"
+
+    # Quay
+    #
+    #
+    - name: Setup Container Runtime Storage for Quay
+      hosts:
+        - quay
+      gather_facts: no
+      tasks:
+
+        - name: Create new mountpoints
+          file:
+            path: "{{ data_dir_base }}"
+            state: directory
+            mode: 0777
+
+        - name: "Set selinux context for container data"
+          sefcontext:
+            target: "{{ item }}"
+            setype: svirt_sandbox_file_t
+            state: present
+          register: sefcontext_status
+          with_items:
+            - "{{ data_dir_base }}/.*"
+
+
+        - name: "Apply selinux context for container data"
+          when: sefcontext_status.changed
+          shell: "restorecon -irv {{ item }}"
+          with_items:
+            - "{{ data_dir_base }}"
+
+    # Redis
+    #
+    #
+    - name: Setup Container Runtime Storage for Redis
+      hosts:
+        - redis
+      gather_facts: no
+      tasks:
+
+        - name: Create new mountpoints
+          file:
+            path: "{{ data_dir_base }}"
+            state: directory
+            mode: 0777
+
+        - name: "Set selinux context for container data"
+          sefcontext:
+            target: "{{ item }}"
+            setype: svirt_sandbox_file_t
+            state: present
+          register: sefcontext_status
+          with_items:
+            - "{{ data_dir_base }}/.*"
+
+
+        - name: "Apply selinux context for container data"
+          when: sefcontext_status.changed
+          shell: "restorecon -irv {{ item }}"
+          with_items:
+            - "{{ data_dir_base }}"
+
+
+

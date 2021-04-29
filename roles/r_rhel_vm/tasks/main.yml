@@ -1,0 +1,25 @@
+---
+#- name: Set hostname to inventory_hostname
+#  hostname:
+#    name: "{{ inventory_hostname }}"
+#  tags: hostname
+
+
+#- name: Check that hostname matches inventory_hostname
+#  shell: hostname
+#  tags: hostname
+#  register: hostname_out
+#  failed_when: hostname_out.stdout != inventory_hostname
+#  changed_when: false
+
+#- tags: network
+#  import_tasks: network.yml
+
+- name: Install packages
+  yum:
+    name: "{{ yum_packages }}"
+    state: present
+    use_backend: dnf
+  when: yum_packages is defined
+  tags: yum
+

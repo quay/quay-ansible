@@ -1,0 +1,94 @@
+#
+# Run these Unit Tests for max security and HA
+#
+
+- when: is_clair|bool
+  block:
+
+    #      CLAIR
+    #
+    #      /var/data/clair
+    #      |-- anchors
+    #      |   `-- mitm.crt
+    #      |-- clair
+    #      |   `-- config
+    #      |       `-- config.yaml
+    #      |       `-- database.pem
+    #      |       `-- keys
+    #      `-- storage
+
+    # Clair config.yaml
+    #
+    #
+    - name: Unit Test - Clair Config Yaml should exist
+      stat:
+        path: "{{ clair_data_dir }}/config/config.yaml"
+      register: stat_result
+
+    - name: Unit Test - Clair Config Yaml should exist
+      assert:
+        that: stat_result.stat.exists
+
+    # Clair TLS Cert
+    #
+    #
+    - name: Unit Test - Clair TLS Cert should exist
+      stat:
+        path: "{{ clair_data_dir }}/config/clair.crt"
+      register: stat_result
+
+    - name: Unit Test - Clair TLS Cert should exist
+      assert:
+        that: stat_result.stat.exists
+
+    # Clair TLS Key
+    #
+    #
+    - name: Unit Test - Clair TLS Key should exist
+      stat:
+        path: "{{ clair_data_dir }}/config/clair.key"
+      register: stat_result
+
+    - name: Unit Test - Clair TLS Cert should exist
+      assert:
+        that: stat_result.stat.exists
+
+    # Clair CA
+    #
+    #
+    - name: Unit Test - CA File for Clair should exist
+      stat:
+        path: "{{ clair_data_dir }}/anchors/ca.crt"
+      register: stat_result
+
+    - name: Unit Test - CA DB File for Clair should exist
+      assert:
+        that: stat_result.stat.exists
+
+    # Clair DB CA
+    #
+    #
+    - name: Unit Test - DB CA File for Clair should exist
+      when: postgres_ssl_mode|bool
+      stat:
+        path: "{{ clair_data_dir }}/anchors/database.pem"
+      register: stat_result
+
+    - name: Unit Test - DB CA File for Clair should exist
+      when: postgres_ssl_mode|bool
+      assert:
+        that: stat_result.stat.exists
+
+    # Clair S3 Certificate
+    #
+    #
+    - name: Unit Test - S3 Cert for Clair should exist
+      when: quay_s3_cert_name is defined
+      stat:
+        path: "{{ clair_data_dir }}/anchors/{{ quay_s3_cert_name }}"
+      register: stat_result
+
+    - name: Unit Test - S3 Cert File for Clair should exist
+      when: quay_s3_cert_name is defined
+      assert:
+        that: stat_result.stat.exists

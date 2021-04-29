@@ -1,0 +1,24 @@
+$TTL 86400
+@ IN SOA dns-primary.dev. admin.dev. (
+                                                2020011800 ;Serial
+                                                3600 ;Refresh
+                                                1800 ;Retry
+                                                604800 ;Expire
+                                                86400 ;Minimum TTL
+)
+
+;Name Server Information
+@     IN     NS dns-primary.dev.
+
+;IP Address for Name Server
+dns-primary IN A 192.168.122.110
+
+;A Record for the following Host name
+quay       IN   A   192.168.122.103
+;quay-ha    IN   A   192.168.122.103
+quay-ha-2  IN   A   192.168.122.223
+redis      IN   A   192.168.122.226
+postgres   IN   A   192.168.122.149
+clair      IN   A   192.168.122.30
+clair-ha   IN   A   192.168.122.158
+clair-ha-2 IN   A   192.168.122.3
