@@ -29,9 +29,7 @@ These playbooks can be used to setup Quay 3.3.4 and Clair 3.3.4 in an HA configu
 * Version increments are n-1. This means subsequent updates have to be done in order to get to the latest version.
 * For this you can either alter these playbook's config mode part or do a container-by-container update strategy as described [here](https://access.redhat.com/documentation/en-us/red_hat_quay/3.5/html/upgrade_red_hat_quay/standalone_upgrade#upgrade_to_v3_5_0_from_v3_4).
 
-## Diagrams 
-### *Exemplary Quay Cluster*
-![](images/quay-ha-conception.jpg)
+## Screenshots 
 
 ### *Clair High Availability Mode*
 ![](images/clair-ha.png)
@@ -90,14 +88,14 @@ Quay's resulting `config.yaml` file is where everything gets merged into and val
 FEATURE_STORAGE_REPLICATION: true
 DISTRIBUTED_STORAGE_CONFIG:
   default:
-  - AzureStorage
-  - azure_account_key: "{{ secrets.secret_key }}"
-    azure_account_name: quaystorageaccount
-    azure_container: quayblobstorage
-    sas_token: "{{ secrets.secret_key }}"
+  - RHOCSStorage
+  - access_key: "{{ secrets.access_key }}"
+    secret_key: "{{ secrets.secret_key }}"
+    bucket_name: quay-datastore-9b2108a3-29f5-43f2-a9d5-2872174f9a56
+    hostname: s3.openshift-storage.svc.cluster.local
     storage_path: /datastorage/registry
-DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS:
-- westeurope
+    is_secure: true
+    port: 443
 ...
 ```
 
@@ -339,7 +337,7 @@ Then next, you could run `p_smoke_test.yml` playbook to verify the success of yo
 1. **Create Organisation**, e.g. `ubi8` in your deployed Quay User Interface
 
 
-2. **Create aprivate Repository**, e.g. `ubi-minimal`
+2. **Create a private Repository**, e.g. `ubi-minimal`
 
 
 3. **Create the Robot "test_robot"** in the Quay UI by clicking on the hog wheel icon on the left hand side and then the drop down arrow and after creation make sure full robot+name is linked with full admin permissions to the repository you just created

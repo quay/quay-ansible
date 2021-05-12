@@ -58,7 +58,7 @@
           -p 6060:6060 -p 6061:6061
           -e NO_PROXY=.dev,localhost,127.0.0.1,{{ quay_hostname }}
           -v {{ clair_data_dir }}/config:/clair/config:z
-          -v {{ clair_data_dir }}/anchors/ca.crt:/etc/pki/ca-trust/source/anchors/ca.crt:z
+          -v {{ clair_data_dir }}/anchors/ca.crt:/etc/pki/ca-trust/source/anchors/ca.crt:Z
           {{ clair_image }}
         register: podman_pid
 
@@ -88,7 +88,7 @@
           -e HTTPS_PROXY=http://{{ clair_proxy_name }}:{{ clair_proxy_port }}
           -e NO_PROXY=.dev,localhost,127.0.0.1,{{ quay_hostname }}
           -v {{ clair_data_dir }}/config:/clair/config:z
-          -v {{ clair_data_dir }}/anchors/ca.crt:/etc/pki/ca-trust/source/anchors/ca.crt:z
+          -v {{ clair_data_dir }}/anchors/ca.crt:/etc/pki/ca-trust/source/anchors/ca.crt:Z
           {{ clair_image }}
         register: podman_pid
 

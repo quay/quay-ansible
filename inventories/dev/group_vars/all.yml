@@ -65,7 +65,7 @@ test_image_api: "ubi8/ubi-minimal"
 test_skip_login_pull: true
 
 quay_test_robot_name: ubi8+test_robot
-quay_test_robot_password: Z9YZFCX4Z8M9PX86SQLJVQLR3MAEPOOSR6FWKUFBMP5HH3BO9EVTP2ZYSTD9DYYY
+quay_test_robot_password: 2M8ILGF6GZST6RFSINNGCMZBZUHGKPDY6Y50MIB11E7KY783XKS6AMYKQSFOW2JS
 quay_system_test_manifest: sha256:90e7a8c15504099bd3a6656ad5f75b26c25822fba6d09d3b067f24c4c6faf4ba
 quay_system_test_bearer: zXhBoyJLD4ErnP4Slh0fQWTVETK0yqF1eRW6XyAD
 

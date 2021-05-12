@@ -28,28 +28,50 @@ quay_config:
   #  DISTRIBUTED_STORAGE_CONFIG:
   #    default:
   #      - AzureStorage
-  #      - { azure_account_key: "{{ secrets.azure_account_key }}",
+  #      - {
+  #          azure_account_key: "{{ secrets.azure_account_key }}",
   #          sas_token: "{{ secrets.azure_sas_token }}",
   #          azure_account_name: quaystorageaccount,
   #          azure_container: quayblobstorage,
-  #          storage_path: /datastorage/registry }
+  #          storage_path: /datastorage/registry
+  #        }
   #  DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS: [westeurope]
   #  DISTRIBUTED_STORAGE_PREFERENCE: [default]
   #  DEFAULT_TAG_EXPIRATION: 4w
 
   # AWS
   #
-  #    DISTRIBUTED_STORAGE_CONFIG:
-  #      default:
-  #        - S3Storage
-  #        - { host: s3-eu-central-1.amazonaws.com,
-  #            s3_access_key: <redacted>,
-  #            s3_bucket: quay-frankfurt-sutnuf,
-  #            s3_secret_key: <redacted>,
-  #            storage_path: /datastorage }
-  #    DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS: [westeurope]
-  #    DISTRIBUTED_STORAGE_PREFERENCE: [default]
-  #    DEFAULT_TAG_EXPIRATION: 4w
+  #  DISTRIBUTED_STORAGE_CONFIG:
+  #    default:
+  #      - S3Storage
+  #      - {
+  #          host: s3-eu-central-1.amazonaws.com,
+  #          s3_access_key: s3_access_key,
+  #          s3_bucket: quay-frankfurt-sutnuf,
+  #          s3_secret_key: s3_secret_key,
+  #          storage_path: /datastorage/registry
+  #         }
+  #  DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS: [westeurope]
+  #  DISTRIBUTED_STORAGE_PREFERENCE: [default]
+  #  DEFAULT_TAG_EXPIRATION: 4w
+
+  # NOOBA
+  #
+  #  DISTRIBUTED_STORAGE_CONFIG:
+  #    default:
+  #      - RHOCSStorage
+  #      - {
+  #         access_key: <access_key
+  #         bucket_name: <bucket_name
+  #         hostname: hostname
+  #         is_secure: true
+  #         port: 443
+  #         secret_key: <secret_key>
+  #         storage_path: /datastorage/registry
+  #        }
+  #  DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS: [local_us]
+  #  DISTRIBUTED_STORAGE_PREFERENCE: [default]
+  #  DEFAULT_TAG_EXPIRATION: 4w
 
   AUTHENTICATION_TYPE: Database # or LDAP
   LDAP_ADMIN_DN: uid=admin,cn=users,cn=accounts,dc=shared,dc=example,dc=opentlc,dc=com
