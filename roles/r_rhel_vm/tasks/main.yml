@@ -4,7 +4,6 @@
 #    name: "{{ inventory_hostname }}"
 #  tags: hostname
 
-
 #- name: Check that hostname matches inventory_hostname
 #  shell: hostname
 #  tags: hostname
@@ -16,10 +15,8 @@
 #  import_tasks: network.yml
 
 - name: Install packages
-  yum:
+  package:
     name: "{{ yum_packages }}"
     state: present
-    use_backend: dnf
   when: yum_packages is defined
   tags: yum
-
