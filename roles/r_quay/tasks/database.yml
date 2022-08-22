@@ -73,7 +73,7 @@
       db: "{{ clair_db_dbname }}"
       ssl_mode: "{{ clair_db_sslmode | default(omit) }}"
       ca_cert: "{{ clair_db_ca_file | default(omit) }}"
-      name: pg_trgm
+      name: uuid-ossp
       state: present
 
 
